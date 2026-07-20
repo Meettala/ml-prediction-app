@@ -1,0 +1,150 @@
+{
+  "dataset": "California Housing (scikit-learn built-in, 1990 US Census block groups)",
+  "rows_after_cleaning": 20597,
+  "target_description": "Median house value per block group, in $100,000s",
+  "features": {
+    "MedInc": "Median income in the block group (tens of thousands of $)",
+    "HouseAge": "Median house age in the block group (years)",
+    "AveRooms": "Average number of rooms per household",
+    "AveBedrms": "Average number of bedrooms per household",
+    "Population": "Block group population",
+    "AveOccup": "Average number of household members",
+    "Latitude": "Block group latitude",
+    "Longitude": "Block group longitude"
+  },
+  "models": {
+    "linear_baseline": {
+      "rmse": 0.6541,
+      "mae": 0.4867,
+      "r2": 0.6786
+    },
+    "random_forest": {
+      "rmse": 0.4759,
+      "mae": 0.319,
+      "r2": 0.8299
+    }
+  },
+  "feature_importance_random_forest": [
+    {
+      "feature": "MedInc",
+      "importance": 0.5294
+    },
+    {
+      "feature": "AveOccup",
+      "importance": 0.1416
+    },
+    {
+      "feature": "Latitude",
+      "importance": 0.0907
+    },
+    {
+      "feature": "Longitude",
+      "importance": 0.0879
+    },
+    {
+      "feature": "HouseAge",
+      "importance": 0.0522
+    },
+    {
+      "feature": "AveRooms",
+      "importance": 0.0435
+    },
+    {
+      "feature": "Population",
+      "importance": 0.0283
+    },
+    {
+      "feature": "AveBedrms",
+      "importance": 0.0265
+    }
+  ],
+  "linear_model_raw_coefficients": {
+    "MedInc": 0.42405,
+    "HouseAge": 0.010775,
+    "AveRooms": -0.096217,
+    "AveBedrms": 0.702209,
+    "Population": 3.6e-05,
+    "AveOccup": -0.299751,
+    "Latitude": -0.438659,
+    "Longitude": -0.432337
+  },
+  "linear_model_intercept": -35.362315,
+  "sample_predictions": [
+    {
+      "features": {
+        "MedInc": 3.98,
+        "HouseAge": 35.0,
+        "AveRooms": 5.14,
+        "AveBedrms": 1.03,
+        "Population": 1930.0,
+        "AveOccup": 2.7,
+        "Latitude": 37.55,
+        "Longitude": -122.3
+      },
+      "predicted_value_100k": 2.5,
+      "actual_value_100k": 3.43
+    },
+    {
+      "features": {
+        "MedInc": 6.88,
+        "HouseAge": 26.0,
+        "AveRooms": 6.99,
+        "AveBedrms": 0.97,
+        "Population": 1241.0,
+        "AveOccup": 2.63,
+        "Latitude": 37.36,
+        "Longitude": -122.04
+      },
+      "predicted_value_100k": 3.99,
+      "actual_value_100k": 4.03
+    },
+    {
+      "features": {
+        "MedInc": 2.61,
+        "HouseAge": 52.0,
+        "AveRooms": 5.78,
+        "AveBedrms": 1.09,
+        "Population": 601.0,
+        "AveOccup": 1.91,
+        "Latitude": 34.05,
+        "Longitude": -117.18
+      },
+      "predicted_value_100k": 1.98,
+      "actual_value_100k": 1.37
+    },
+    {
+      "features": {
+        "MedInc": 1.39,
+        "HouseAge": 30.0,
+        "AveRooms": 4.07,
+        "AveBedrms": 1.05,
+        "Population": 2925.0,
+        "AveOccup": 3.25,
+        "Latitude": 38.52,
+        "Longitude": -121.43
+      },
+      "predicted_value_100k": 0.76,
+      "actual_value_100k": 0.78
+    },
+    {
+      "features": {
+        "MedInc": 5.94,
+        "HouseAge": 34.0,
+        "AveRooms": 6.23,
+        "AveBedrms": 0.97,
+        "Population": 1114.0,
+        "AveOccup": 2.63,
+        "Latitude": 34.24,
+        "Longitude": -118.5
+      },
+      "predicted_value_100k": 3.27,
+      "actual_value_100k": 3.15
+    }
+  ],
+  "limitations": [
+    "Trained on 1990 census data \u2014 not current housing prices.",
+    "Block-group level, not individual-property level.",
+    "Random Forest metrics are on a held-out test set, not live data.",
+    "Illustrative portfolio project only \u2014 not financial or investment advice."
+  ]
+}
