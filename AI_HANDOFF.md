@@ -17,6 +17,7 @@ Never commit private datasets, secrets, customer records, production endpoints o
 - Working branch: `agent/professional-repository-foundation`
 - Active pull request: Draft PR #1, `Professionalize ML prediction app`
 - Starting commit: `c1c900bb3f84eb4c9b5000bcab216dd894cf396b`
+- Current integrated branch was green in workflow run 25 before final CI cleanup
 - Visibility: public
 - Stack: Python, pandas, scikit-learn, FastAPI, Streamlit, Pydantic, pytest, Ruff and Docker
 - Dataset: scikit-learn California Housing aggregate block-group dataset
@@ -42,7 +43,7 @@ The output is an educational estimate from 1990 census block-group data. It is n
 9. Missing, corrupt or incompatible artifacts produce safe user-facing errors.
 10. Documentation and interfaces must show the historical-data and non-valuation limitation.
 
-## Implemented on the professionalisation branch
+## Implemented professional foundation
 
 ### Model and reliability
 
@@ -54,7 +55,7 @@ The output is an educational estimate from 1990 census block-group data. It is n
 
 ### API and Streamlit
 
-- FastAPI now forbids extra fields and rejects non-finite/out-of-range inputs.
+- FastAPI forbids extra fields and rejects non-finite/out-of-range inputs.
 - API construction follows the canonical training feature order.
 - Missing artifacts return a generic 503; invalid model output returns a generic 500.
 - Streamlit loads the same validated bundle and safely handles invalid metrics/model output.
@@ -66,7 +67,8 @@ The output is an educational estimate from 1990 census block-group data. It is n
 - Replaced network/training work hidden inside API test imports with dummy-model boundary tests.
 - Reworked data tests to use injected synthetic frames.
 - Added Python 3.10–3.12 GitHub Actions, Ruff and `pip-audit`.
-- Existing baseline tests passed on Python 3.10–3.12 before hardening; the integrated head still requires final verification.
+- Workflow run 25 passed Python 3.10, 3.11 and 3.12 tests, Ruff and dependency auditing on the integrated implementation.
+- Temporary Ruff diagnostic-artifact plumbing has been removed. A final clean workflow is required on the exact latest head.
 
 ### Deployment, governance and portfolio
 
@@ -101,13 +103,11 @@ The output is an educational estimate from 1990 census block-group data. It is n
 
 ## Immediate next work
 
-1. Confirm tests, Ruff and `pip-audit` on the exact integrated branch head.
-2. Fix every finding without weakening the gates.
-3. Remove temporary Ruff diagnostic-artifact plumbing.
-4. Review Docker build assumptions and repository documentation for consistency.
-5. Update the PR description with the exact completed scope and verified CI result.
-6. Mark PR #1 ready and squash-merge only after the exact final head is green and mergeable.
-7. After merge, capture a real Streamlit screenshot/demo and upload the rendered social-preview PNG manually.
+1. Confirm the final clean workflow on the exact current branch head.
+2. Fix any finding without weakening the gates.
+3. Update the PR description with the exact completed scope and clean validation result.
+4. Mark PR #1 ready and squash-merge only after the exact final head is green and mergeable.
+5. After merge, capture a real Streamlit screenshot/demo and upload the rendered social-preview PNG manually.
 
 ## Rules for another AI
 
