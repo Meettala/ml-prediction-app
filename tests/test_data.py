@@ -1,11 +1,20 @@
 from __future__ import annotations
 
+import math
 from types import SimpleNamespace
 
 import pandas as pd
+import pytest
 
 import src.mlapp.data as data_module
-from src.mlapp.data import FEATURE_DESCRIPTIONS, TARGET_NAME, clean_data, load_data, split_data
+from src.mlapp.data import (
+    FEATURE_DESCRIPTIONS,
+    TARGET_NAME,
+    clean_data,
+    load_data,
+    split_data,
+    validate_data_frame,
+)
 
 
 def sample_frame() -> pd.DataFrame:
@@ -56,3 +65,38 @@ def test_split_data_is_reproducible_and_preserves_alignment():
     assert len(X_test) == len(y_test)
     assert X_train.index.tolist() == second[0].index.tolist()
     assert X_test.index.tolist() == second[1].index.tolist()
+
+
+def test_rejects_missing_non_numeric_and_non_finite_columns():
+    missing = sample_frame().drop(columns=["MedInc"])
+    with pytest.raises(ValueError, match="missing required columns"):
+        validate_data_frame(missing)
+
+    non_numeric = sample_frame()
+    non_numeric["MedInc"] = "unknown"
+    with pytest.raises(ValueError, match="must be numeric"):
+        validate_data_frame(non_numeric)
+
+    non_finite = sample_frame()
+    non_finite.loc[0, "MedInc"] = math.inf
+    with pytest.raises(ValueError, match="non-finite"):
+        validate_data_frame(non_finite)
+
+
+def test_rejects_empty_cleaning_result():
+    frame = sample_frame().iloc[[2, 3]]
+
+    with pytest.raises(ValueError, match="No housing rows remain"):
+        clean_data(frame)
+
+
+@pytest.mark.parametrize("test_size", [0, 1, -0.1, 1.1, "0.2", True])
+def test_rejects_invalid_test_size(test_size):
+    with pytest.raises(ValueError, match="test_size"):
+        split_data(sample_frame(), test_size=test_size)
+
+
+@pytest.mark.parametrize("random_state", [1.5, "42", True])
+def test_rejects_invalid_random_state(random_state):
+    with pytest.raises(ValueError, match="random_state"):
+        split_data(sample_frame(), random_state=random_state)
