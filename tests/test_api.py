@@ -1,45 +1,91 @@
-import subprocess
-import sys
-from pathlib import Path
+from __future__ import annotations
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import math
 
-# Ensure a trained model exists before importing the API (which loads it lazily,
-# but /predict needs it present to succeed).
-ROOT = Path(__file__).resolve().parents[1]
-if not (ROOT / "models" / "random_forest.joblib").exists():
-    subprocess.run([sys.executable, "-m", "src.mlapp.pipeline"], cwd=ROOT, check=True)
+from fastapi.testclient import TestClient
 
-from fastapi.testclient import TestClient  # noqa: E402
-from api.main import app  # noqa: E402
+import api.main as api_main
+from src.mlapp.artifacts import FEATURE_NAMES
 
-client = TestClient(app)
+
+class RecordingModel:
+    def __init__(self, prediction=2.5):
+        self.prediction = prediction
+        self.columns = None
+
+    def predict(self, frame):
+        self.columns = list(frame.columns)
+        return [self.prediction]
+
 
 VALID_PAYLOAD = {
-    "MedInc": 5.0, "HouseAge": 20, "AveRooms": 6.0, "AveBedrms": 1.0,
-    "Population": 1500, "AveOccup": 3.0, "Latitude": 34.0, "Longitude": -118.0,
+    "MedInc": 5.0,
+    "HouseAge": 20,
+    "AveRooms": 6.0,
+    "AveBedrms": 1.0,
+    "Population": 1500,
+    "AveOccup": 3.0,
+    "Latitude": 34.0,
+    "Longitude": -118.0,
 }
 
 
-def test_health():
-    resp = client.get("/health")
-    assert resp.status_code == 200
-    assert resp.json()["model_trained"] is True
+def setup_function():
+    api_main._model_bundle = None
 
 
-def test_predict_returns_reasonable_value():
-    resp = client.post("/predict", json=VALID_PAYLOAD)
-    assert resp.status_code == 200
-    body = resp.json()
-    assert body["predicted_value_100k"] > 0
-    # usd is derived from the unrounded prediction, so allow for the
-    # small rounding difference vs. the already-rounded 100k figure.
-    assert abs(body["predicted_value_usd"] - body["predicted_value_100k"] * 100_000) < 100
-    assert "disclaimer" in body
+def test_health_reports_artifact_presence():
+    response = TestClient(api_main.app).get("/health")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+    assert isinstance(response.json()["model_artifact_present"], bool)
 
 
-def test_predict_rejects_invalid_input():
-    bad_payload = dict(VALID_PAYLOAD)
-    bad_payload["HouseAge"] = -5  # invalid: below allowed range
-    resp = client.post("/predict", json=bad_payload)
-    assert resp.status_code == 422
+def test_predict_uses_canonical_feature_order():
+    model = RecordingModel()
+    api_main._model_bundle = {"model": model, "model_name": "random_forest"}
+
+    response = TestClient(api_main.app).post("/predict", json=VALID_PAYLOAD)
+
+    assert response.status_code == 200
+    assert model.columns == list(FEATURE_NAMES)
+    assert response.json()["predicted_value_usd"] == 250000.0
+
+
+def test_rejects_extra_non_finite_and_out_of_range_inputs():
+    client = TestClient(api_main.app)
+
+    assert client.post(
+        "/predict",
+        json={**VALID_PAYLOAD, "unexpected": 1},
+    ).status_code == 422
+    assert client.post(
+        "/predict",
+        json={**VALID_PAYLOAD, "MedInc": "NaN"},
+    ).status_code == 422
+    assert client.post(
+        "/predict",
+        json={**VALID_PAYLOAD, "AveRooms": 100},
+    ).status_code == 422
+
+
+def test_returns_safe_error_for_invalid_model_output():
+    api_main._model_bundle = {
+        "model": RecordingModel(math.nan),
+        "model_name": "random_forest",
+    }
+
+    response = TestClient(api_main.app).post("/predict", json=VALID_PAYLOAD)
+
+    assert response.status_code == 500
+    assert response.json()["detail"] == "The prediction could not be produced safely."
+
+
+def test_returns_503_when_artifact_is_unavailable(monkeypatch, tmp_path):
+    monkeypatch.setattr(api_main, "MODEL_PATH", tmp_path / "missing.joblib")
+
+    response = TestClient(api_main.app).post("/predict", json=VALID_PAYLOAD)
+
+    assert response.status_code == 503
+    assert "Run the training pipeline" in response.json()["detail"]

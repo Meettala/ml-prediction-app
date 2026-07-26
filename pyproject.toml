@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ml-prediction-app"
+version = "0.1.0"
+description = "Reproducible California housing regression pipeline with FastAPI and Streamlit demos."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Meet Tala" }]
+dependencies = [
+  "pandas>=2.0,<3.0",
+  "scikit-learn>=1.4,<2.0",
+  "fastapi>=0.110,<1.0",
+  "uvicorn[standard]>=0.29,<1.0",
+  "joblib>=1.3,<2.0",
+  "streamlit>=1.35,<2.0",
+  "pydantic>=2.0,<3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.27,<1.0",
+  "pip-audit>=2.7,<3.0",
+  "pytest>=8.0,<9.0",
+  "ruff>=0.12,<1.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["src*", "api*"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["E402"]

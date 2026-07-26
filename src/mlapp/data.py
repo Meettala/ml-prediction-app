@@ -1,13 +1,8 @@
-"""
-Data loading and preparation for the California Housing prediction task.
-
-Dataset: scikit-learn's built-in California Housing dataset (derived from
-the 1990 US Census, block-group level, no personal data — see
-docs/security/privacy-by-design.md). Target: median house value, in units
-of $100,000s, for a census block group.
-"""
+"""Data loading and preparation for the California Housing prediction task."""
 
 from __future__ import annotations
+
+import math
 
 import pandas as pd
 from sklearn.datasets import fetch_california_housing
@@ -23,30 +18,67 @@ FEATURE_DESCRIPTIONS = {
     "Latitude": "Block group latitude",
     "Longitude": "Block group longitude",
 }
-
-TARGET_NAME = "MedHouseVal"  # median house value, in $100,000s
+TARGET_NAME = "MedHouseVal"
+REQUIRED_COLUMNS = (*FEATURE_DESCRIPTIONS, TARGET_NAME)
 
 
 def load_data() -> pd.DataFrame:
+    """Download the public aggregate dataset and return a validated copy."""
     data = fetch_california_housing(as_frame=True)
-    df = data.frame.copy()
-    return df
+    frame = data.frame.copy()
+    validate_data_frame(frame)
+    return frame
 
 
-def clean_data(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Basic, transparent cleaning: drop exact duplicate rows and clip a
-    small number of extreme outliers in AveRooms/AveOccup that are known
-    data artifacts in this dataset (not real households), rather than
-    silently leaving them to distort the model.
-    """
-    df = df.drop_duplicates()
-    df = df[df["AveRooms"] < 30]
-    df = df[df["AveOccup"] < 15]
-    return df.reset_index(drop=True)
+def validate_data_frame(frame: pd.DataFrame) -> None:
+    """Validate the training schema without silently coercing bad values."""
+    if not isinstance(frame, pd.DataFrame) or frame.empty:
+        raise ValueError("Housing data must be a non-empty DataFrame")
+
+    missing = [column for column in REQUIRED_COLUMNS if column not in frame.columns]
+    if missing:
+        raise ValueError(f"Housing data is missing required columns: {', '.join(missing)}")
+
+    for column in REQUIRED_COLUMNS:
+        if not pd.api.types.is_numeric_dtype(frame[column]):
+            raise ValueError(f"Housing column {column} must be numeric")
+        if frame[column].isna().any():
+            raise ValueError(f"Housing column {column} contains missing values")
+        if not frame[column].map(lambda value: math.isfinite(float(value))).all():
+            raise ValueError(f"Housing column {column} contains non-finite values")
 
 
-def split_data(df: pd.DataFrame, test_size: float = 0.2, random_state: int = 42):
-    X = df[list(FEATURE_DESCRIPTIONS.keys())]
-    y = df[TARGET_NAME]
-    return train_test_split(X, y, test_size=test_size, random_state=random_state)
+def clean_data(frame: pd.DataFrame) -> pd.DataFrame:
+    """Apply transparent duplicate and known extreme-artifact filtering."""
+    validate_data_frame(frame)
+    cleaned = frame.drop_duplicates()
+    cleaned = cleaned[cleaned["AveRooms"] < 30]
+    cleaned = cleaned[cleaned["AveOccup"] < 15]
+    cleaned = cleaned.reset_index(drop=True)
+    if cleaned.empty:
+        raise ValueError("No housing rows remain after cleaning")
+    return cleaned
+
+
+def split_data(
+    frame: pd.DataFrame,
+    test_size: float = 0.2,
+    random_state: int = 42,
+):
+    """Return a deterministic train/test split after validating parameters."""
+    validate_data_frame(frame)
+    if not isinstance(test_size, int | float) or isinstance(test_size, bool):
+        raise ValueError("test_size must be numeric")
+    if not 0 < float(test_size) < 1:
+        raise ValueError("test_size must be between 0 and 1")
+    if not isinstance(random_state, int) or isinstance(random_state, bool):
+        raise ValueError("random_state must be an integer")
+
+    features = frame[list(FEATURE_DESCRIPTIONS)]
+    target = frame[TARGET_NAME]
+    return train_test_split(
+        features,
+        target,
+        test_size=float(test_size),
+        random_state=random_state,
+    )
