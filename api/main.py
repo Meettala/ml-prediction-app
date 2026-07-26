@@ -1,18 +1,20 @@
-"""
-FastAPI service serving the trained Random Forest model.
-
-Run locally with:
-    uvicorn api.main:app --reload
-"""
+"""FastAPI service for the trusted local California Housing model bundle."""
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
-import joblib
 import pandas as pd
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+from src.mlapp.artifacts import (
+    FEATURE_NAMES,
+    InvalidModelArtifact,
+    load_model_bundle,
+    validate_prediction,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 MODEL_PATH = ROOT / "models" / "random_forest.joblib"
@@ -20,36 +22,27 @@ MODEL_PATH = ROOT / "models" / "random_forest.joblib"
 app = FastAPI(
     title="California Housing Price Predictor",
     description=(
-        "Illustrative portfolio project predicting median block-group "
-        "house value from 1990 US Census data. Not financial advice — "
-        "see /docs/security/safety-rules.md in the repo."
+        "Illustrative block-group estimate from 1990 US Census data. "
+        "Not a property valuation or financial advice."
     ),
 )
 
-_model = None
-
-
-def get_model():
-    global _model
-    if _model is None:
-        if not MODEL_PATH.exists():
-            raise HTTPException(
-                status_code=503,
-                detail="Model not trained yet. Run `python -m src.mlapp.pipeline` first.",
-            )
-        _model = joblib.load(MODEL_PATH)
-    return _model
+_model_bundle: dict[str, Any] | None = None
 
 
 class PredictionRequest(BaseModel):
-    MedInc: float = Field(..., description="Median income (tens of thousands of $)", ge=0)
-    HouseAge: float = Field(..., description="Median house age (years)", ge=0, le=100)
-    AveRooms: float = Field(..., description="Average rooms per household", gt=0)
-    AveBedrms: float = Field(..., description="Average bedrooms per household", gt=0)
-    Population: float = Field(..., description="Block group population", ge=0)
-    AveOccup: float = Field(..., description="Average household occupancy", gt=0)
-    Latitude: float = Field(..., description="Latitude", ge=32.0, le=42.0)
-    Longitude: float = Field(..., description="Longitude", ge=-125.0, le=-114.0)
+    """Validated block-group features in the training schema."""
+
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    MedInc: float = Field(..., ge=0, le=20)
+    HouseAge: float = Field(..., ge=0, le=100)
+    AveRooms: float = Field(..., gt=0, le=30)
+    AveBedrms: float = Field(..., gt=0, le=10)
+    Population: float = Field(..., ge=0, le=100_000)
+    AveOccup: float = Field(..., gt=0, le=15)
+    Latitude: float = Field(..., ge=32.0, le=42.0)
+    Longitude: float = Field(..., ge=-125.0, le=-114.0)
 
 
 class PredictionResponse(BaseModel):
@@ -59,24 +52,49 @@ class PredictionResponse(BaseModel):
     disclaimer: str
 
 
+def get_model_bundle() -> dict[str, Any]:
+    """Return the cached, validated trusted model bundle."""
+    global _model_bundle
+    if _model_bundle is None:
+        try:
+            _model_bundle = load_model_bundle(MODEL_PATH)
+        except InvalidModelArtifact as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="Prediction model is unavailable. Run the training pipeline first.",
+            ) from exc
+    return _model_bundle
+
+
 @app.get("/health")
-def health():
-    return {"status": "ok", "model_trained": MODEL_PATH.exists()}
+def health() -> dict[str, object]:
+    return {"status": "ok", "model_artifact_present": MODEL_PATH.is_file()}
 
 
 @app.post("/predict", response_model=PredictionResponse)
-def predict(request: PredictionRequest):
-    model = get_model()
-    features = pd.DataFrame([{
-        "MedInc": request.MedInc, "HouseAge": request.HouseAge,
-        "AveRooms": request.AveRooms, "AveBedrms": request.AveBedrms,
-        "Population": request.Population, "AveOccup": request.AveOccup,
-        "Latitude": request.Latitude, "Longitude": request.Longitude,
-    }])
-    prediction = float(model.predict(features)[0])
+def predict(request: PredictionRequest) -> PredictionResponse:
+    bundle = get_model_bundle()
+    values = request.model_dump()
+    features = pd.DataFrame(
+        [[values[name] for name in FEATURE_NAMES]],
+        columns=list(FEATURE_NAMES),
+    )
+
+    try:
+        raw_prediction = bundle["model"].predict(features)[0]
+        prediction = validate_prediction(raw_prediction)
+    except (InvalidModelArtifact, IndexError, KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="The prediction could not be produced safely.",
+        ) from exc
+
     return PredictionResponse(
         predicted_value_100k=round(prediction, 3),
         predicted_value_usd=round(prediction * 100_000, 2),
-        model="random_forest",
-        disclaimer="Illustrative estimate on 1990 census data — not financial advice.",
+        model=str(bundle["model_name"]),
+        disclaimer=(
+            "Illustrative block-group estimate using 1990 census data; "
+            "not a property valuation or financial advice."
+        ),
     )
