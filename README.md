@@ -1,23 +1,33 @@
 # ML Prediction App — California Housing
 
-A reproducible regression application that moves beyond a notebook: public aggregate data, transparent cleaning, deterministic train/test evaluation, a simple baseline, a stronger model, versioned artifacts, FastAPI, Streamlit, Docker and explicit model limitations.
+A reproducible regression application that moves beyond a notebook: transparent cleaning, deterministic evaluation, a baseline and stronger model, validated model artifacts, FastAPI, Streamlit, Docker and explicit model limitations.
 
 ![ML Prediction App architecture](docs/assets/architecture.svg)
 
+## Live demo
+
+- **Streamlit UI:** https://meet-tala-ml-prediction-app-px2pch6zms5lrdhxyxurht.streamlit.app
+- **FastAPI service:** https://ml-prediction-app-xfsd.onrender.com
+- **Interactive API documentation:** https://ml-prediction-app-xfsd.onrender.com/docs
+- **Health check:** https://ml-prediction-app-xfsd.onrender.com/health
+
+The Streamlit deployment and Render API were manually verified on 1 August 2026. The Render free service may need additional startup time after inactivity.
+
+> The prediction is an educational block-group estimate based on 1990 US Census data. It is **not** a current property valuation, appraisal, investment recommendation or financial advice.
+
 ## Why this project exists
 
-Many machine-learning portfolio projects stop at model training or show only the best metric. This project demonstrates the engineering around a model:
+Many machine-learning portfolio projects stop at model training. This project demonstrates the engineering around a model:
 
 - a visible Linear Regression baseline and Random Forest comparison;
 - held-out RMSE, MAE and R²;
 - deterministic seeds and train/test separation;
 - a canonical feature schema shared by training and serving;
-- a versioned, validated model bundle;
+- a versioned and validated model bundle;
 - strict API and UI input handling;
 - offline tests and dependency auditing;
+- Docker and public deployment;
 - transparent model-risk documentation.
-
-The prediction is an educational block-group estimate from 1990 US Census data. It is **not** a current property valuation, appraisal, investment recommendation or financial advice.
 
 ## Engineering highlights
 
@@ -25,15 +35,28 @@ The prediction is an educational block-group estimate from 1990 US Census data. 
 - Transparent duplicate removal and documented extreme-row filtering.
 - Fixed train/test split and Random Forest random state.
 - Linear Regression baseline with training-fitted standardisation.
-- Random Forest used for the API and Streamlit estimate.
+- Random Forest selected for the API and Streamlit estimate.
 - Held-out RMSE, MAE and R² exported from the real pipeline.
 - Canonical feature order in `src/mlapp/artifacts.py`.
 - Versioned model metadata and schema validation.
 - Rejection of extra, non-finite and out-of-range API values.
-- Finite, non-negative prediction validation.
 - Safe errors for missing, corrupt or incompatible artifacts.
 - Python 3.10–3.12 tests, Ruff and `pip-audit` in GitHub Actions.
 - Non-root Docker API image with a health check.
+- Streamlit Community Cloud import-path hardening for the local `src` package.
+
+## Measured model results
+
+The completed training run used 20,597 cleaned rows and eight features:
+
+`MedInc`, `HouseAge`, `AveRooms`, `AveBedrms`, `Population`, `AveOccup`, `Latitude`, `Longitude`.
+
+| Model | RMSE | MAE | R² |
+|---|---:|---:|---:|
+| Linear Regression baseline | 0.6541 | 0.4867 | 0.6786 |
+| Random Forest | 0.4762 | 0.3193 | 0.8297 |
+
+The Random Forest was selected because it performed better on the held-out test split. These metrics do not establish current-price accuracy, causal validity or performance across all populations and time periods.
 
 ## Architecture
 
@@ -70,10 +93,7 @@ See [`docs/architecture.md`](docs/architecture.md) and [`docs/model-card.md`](do
 
 ## Quick start
 
-### Requirements
-
-- Python 3.10–3.12
-- Internet access for the first real dataset download
+Requirements: Python 3.10–3.12 and internet access for the first real dataset download.
 
 ```bash
 git clone https://github.com/Meettala/ml-prediction-app.git
@@ -100,7 +120,7 @@ exports/metrics.json
 
 `joblib` files can execute code while loading. Only load artifacts created by this trusted local pipeline; never accept uploaded model files or user-controlled artifact paths.
 
-## Run the interfaces
+## Run the interfaces locally
 
 FastAPI:
 
@@ -135,7 +155,7 @@ curl -X POST http://localhost:8000/predict \
   }'
 ```
 
-The response contains the estimate in dataset units and US dollars, the model name and a disclaimer. Exact values depend on the locally trained artifact.
+A verified public request returned HTTP 200 with a Random Forest estimate and the historical-data disclaimer. Invalid, missing, extra, non-finite and out-of-range requests return validation errors.
 
 ## Verification
 
@@ -146,18 +166,7 @@ ruff check src api streamlit_app tests
 pip-audit -r requirements.txt
 ```
 
-The unit suite is offline and deterministic. It covers:
-
-- data loading through an injected synthetic frame;
-- cleaning and reproducible splitting;
-- model-bundle round trips and schema mismatch;
-- missing and legacy artifact handling;
-- non-finite and invalid predictions;
-- API feature order;
-- extra, non-finite and out-of-range requests;
-- safe errors for missing artifacts and invalid model output.
-
-Run `python -m src.mlapp.pipeline` separately for the real dataset/model integration path.
+The suite covers cleaning, reproducible splitting, model-bundle validation, missing and legacy artifacts, invalid predictions, API feature order, extra fields, non-finite values, out-of-range requests and safe failure behaviour.
 
 ## Docker API demo
 
@@ -166,7 +175,7 @@ docker build -t ml-prediction-app .
 docker run --rm -p 8000:8000 ml-prediction-app
 ```
 
-The build downloads the public dataset and generates trusted model/metrics artifacts inside the image. The runtime stage uses a non-root user and serves FastAPI on port 8000.
+The Docker build, startup, `/health`, `/docs`, valid `/predict` and invalid request validation were manually tested. The runtime image uses a non-root user and serves FastAPI on port 8000.
 
 ## Repository structure
 
@@ -194,7 +203,7 @@ The build downloads the public dataset and generates trusted model/metrics artif
 - One held-out split does not prove performance across time, regions or populations.
 - Feature importance is not causal explanation.
 - Inputs within accepted ranges can still produce inaccurate estimates.
-- The public demo has no authentication, monitoring, rate limiting or production model governance.
+- The public demo has no authentication, rate limiting or production model governance.
 
 See [`docs/model-card.md`](docs/model-card.md) for the full model-risk statement.
 
@@ -207,9 +216,7 @@ See [`docs/model-card.md`](docs/model-card.md) for the full model-risk statement
 
 ## Commercial boundary
 
-This public repository is MIT licensed for portfolio and reference use. A client-facing or paid service should be built in a separate private governed repository with current licensed data, identity, rate limiting, signed artifacts, monitoring, drift evaluation, legal review and independent security/model-risk testing.
-
-See [`docs/commercialisation-and-private-production.md`](docs/commercialisation-and-private-production.md).
+This public repository is MIT licensed for portfolio and reference use. A paid or client-facing service should be developed in a separate private governed repository with current licensed data, identity, rate limiting, signed artifacts, monitoring, drift evaluation, legal review and independent security/model-risk testing.
 
 ## Licence
 
