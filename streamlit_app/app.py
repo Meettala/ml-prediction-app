@@ -10,16 +10,16 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import pandas as pd
-import streamlit as st
+import pandas as pd  # noqa: E402
+import streamlit as st  # noqa: E402
 
-from src.mlapp.artifacts import (
+from src.mlapp.artifacts import (  # noqa: E402
     FEATURE_NAMES,
     InvalidModelArtifact,
     load_model_bundle,
     validate_prediction,
 )
-from src.mlapp.pipeline import run_pipeline
+from src.mlapp.pipeline import run_pipeline  # noqa: E402
 
 MODEL_PATH = ROOT / "models" / "random_forest.joblib"
 EXPORT_PATH = ROOT / "exports" / "metrics.json"
