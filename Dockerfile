@@ -14,7 +14,8 @@ COPY src ./src
 COPY api ./api
 COPY docs ./docs
 
-RUN PYTHONPATH=/app python -m src.mlapp.pipeline
+RUN PYTHONPATH=/install/lib/python3.12/site-packages:/app \
+    python -m src.mlapp.pipeline
 
 FROM python:3.12-slim AS runtime
 
