@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 
 import joblib
+import numpy as np
 import pytest
 
 from src.mlapp.artifacts import (
@@ -22,7 +23,7 @@ class DummyModel:
 
 class DoubleScaler:
     def transform(self, frame):
-        return frame * 2
+        return np.asarray(frame) * 2
 
 
 class RecordingModel:
@@ -52,7 +53,7 @@ def test_bundle_prediction_applies_training_scaler_when_present():
     predictions = predict_from_bundle(bundle, [[1.0, 2.0]])
 
     assert predictions == [1.0]
-    assert model.last == [[1.0, 2.0], [1.0, 2.0]]
+    assert model.last.tolist() == [[2.0, 4.0]]
 
 
 def test_rejects_missing_and_unversioned_artifacts(tmp_path):
