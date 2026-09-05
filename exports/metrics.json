@@ -1,74 +1,260 @@
 {
-  "dataset": "California Housing (scikit-learn built-in, 1990 US Census block groups)",
-  "rows_after_cleaning": 20597,
-  "target_description": "Median house value per block group, in $100,000s",
-  "features": {
-    "MedInc": "Median income in the block group (tens of thousands of $)",
-    "HouseAge": "Median house age in the block group (years)",
-    "AveRooms": "Average number of rooms per household",
-    "AveBedrms": "Average number of bedrooms per household",
-    "Population": "Block group population",
-    "AveOccup": "Average number of household members",
-    "Latitude": "Block group latitude",
-    "Longitude": "Block group longitude"
+  "schema_version": 2,
+  "dataset": {
+    "name": "California Housing",
+    "source": "scikit-learn built-in dataset derived from 1990 US Census block groups",
+    "target": "MedHouseVal",
+    "target_description": "Median block-group house value in $100,000 dataset units"
   },
-  "models": {
-    "linear_baseline": {
-      "rmse": 0.6541,
-      "mae": 0.4867,
-      "r2": 0.6786
+  "cleaning": {
+    "raw_rows": 20640,
+    "exact_duplicates_removed": 0,
+    "ave_rooms_rows_removed": 24,
+    "ave_occup_rows_removed": 19,
+    "final_rows": 20597,
+    "filters": {
+      "AveRooms": "remove rows where AveRooms >= 30",
+      "AveOccup": "after prior filtering, remove rows where AveOccup >= 15"
     },
-    "random_forest": {
-      "rmse": 0.4759,
-      "mae": 0.319,
-      "r2": 0.8299
+    "interpretation": "fixed transparent demonstration filters; not statistically optimal outlier treatment"
+  },
+  "split": {
+    "method": "deterministic train/validation/final-test",
+    "final_test_fraction": 0.2,
+    "validation_fraction_of_development": 0.25,
+    "final_test_random_state": 42,
+    "validation_random_state": 43,
+    "row_counts": {
+      "train": 12357,
+      "validation": 4120,
+      "test": 4120
+    },
+    "development_refit_rows": 16477,
+    "purpose": {
+      "train": "fit fixed candidate models",
+      "validation": "compare fixed candidates and select serving model",
+      "test": "one final held-out evaluation after model selection"
     }
   },
-  "feature_importance_random_forest": [
+  "selection": {
+    "candidate_models": [
+      "linear_baseline",
+      "random_forest"
+    ],
+    "criterion": "lowest validation RMSE",
+    "tie_breaker": "linear_baseline (simpler fixed candidate)",
+    "selected_model": "random_forest",
+    "final_test_used_for_selection": false
+  },
+  "model_parameters": {
+    "linear_baseline": {
+      "fit_intercept": true,
+      "standard_scaler": true
+    },
+    "random_forest": {
+      "n_estimators": 200,
+      "max_depth": 14,
+      "random_state": 42,
+      "n_jobs": -1
+    }
+  },
+  "validation_metrics": {
+    "linear_baseline": {
+      "rmse": 0.6877,
+      "mae": 0.5023,
+      "r2": 0.6454
+    },
+    "random_forest": {
+      "rmse": 0.5356,
+      "mae": 0.3529,
+      "r2": 0.785
+    }
+  },
+  "final_test_metrics": {
+    "model": "random_forest",
+    "rmse": 0.4771,
+    "mae": 0.3202,
+    "r2": 0.829
+  },
+  "training_environment": {
+    "python": "3.12.14",
+    "pandas": "2.3.3",
+    "numpy": "2.5.2",
+    "scikit_learn": "1.9.0",
+    "joblib": "1.6.0"
+  },
+  "feature_schema": {
+    "MedInc": {
+      "description": "Median income in the block group (tens of thousands of $)",
+      "unit": "tens of thousands of US dollars",
+      "cleaned_training_range": {
+        "min": 0.4999,
+        "max": 15.0001
+      },
+      "api_demo_range": {
+        "min": 0.0,
+        "max": 20.0,
+        "min_exclusive": false
+      },
+      "streamlit_convenience_range": {
+        "min": 0.5,
+        "max": 15.0
+      }
+    },
+    "HouseAge": {
+      "description": "Median house age in the block group (years)",
+      "unit": "years",
+      "cleaned_training_range": {
+        "min": 1.0,
+        "max": 52.0
+      },
+      "api_demo_range": {
+        "min": 0.0,
+        "max": 100.0,
+        "min_exclusive": false
+      },
+      "streamlit_convenience_range": {
+        "min": 1.0,
+        "max": 52.0
+      }
+    },
+    "AveRooms": {
+      "description": "Average number of rooms per household",
+      "unit": "rooms per household",
+      "cleaned_training_range": {
+        "min": 0.846154,
+        "max": 29.852941
+      },
+      "api_demo_range": {
+        "min": 0.0,
+        "max": 30.0,
+        "min_exclusive": true
+      },
+      "streamlit_convenience_range": {
+        "min": 1.0,
+        "max": 15.0
+      }
+    },
+    "AveBedrms": {
+      "description": "Average number of bedrooms per household",
+      "unit": "bedrooms per household",
+      "cleaned_training_range": {
+        "min": 0.333333,
+        "max": 6.5
+      },
+      "api_demo_range": {
+        "min": 0.0,
+        "max": 10.0,
+        "min_exclusive": true
+      },
+      "streamlit_convenience_range": {
+        "min": 0.5,
+        "max": 5.0
+      }
+    },
+    "Population": {
+      "description": "Block group population",
+      "unit": "people",
+      "cleaned_training_range": {
+        "min": 3.0,
+        "max": 35682.0
+      },
+      "api_demo_range": {
+        "min": 0.0,
+        "max": 100000.0,
+        "min_exclusive": false
+      },
+      "streamlit_convenience_range": {
+        "min": 3.0,
+        "max": 10000.0
+      }
+    },
+    "AveOccup": {
+      "description": "Average number of household members",
+      "unit": "people per household",
+      "cleaned_training_range": {
+        "min": 0.692308,
+        "max": 14.0
+      },
+      "api_demo_range": {
+        "min": 0.0,
+        "max": 15.0,
+        "min_exclusive": true
+      },
+      "streamlit_convenience_range": {
+        "min": 0.5,
+        "max": 10.0
+      }
+    },
+    "Latitude": {
+      "description": "Block group latitude",
+      "unit": "decimal degrees",
+      "cleaned_training_range": {
+        "min": 32.54,
+        "max": 41.95
+      },
+      "api_demo_range": {
+        "min": 32.0,
+        "max": 42.0,
+        "min_exclusive": false
+      },
+      "streamlit_convenience_range": {
+        "min": 32.5,
+        "max": 42.0
+      }
+    },
+    "Longitude": {
+      "description": "Block group longitude",
+      "unit": "decimal degrees",
+      "cleaned_training_range": {
+        "min": -124.35,
+        "max": -114.31
+      },
+      "api_demo_range": {
+        "min": -125.0,
+        "max": -114.0,
+        "min_exclusive": false
+      },
+      "streamlit_convenience_range": {
+        "min": -124.5,
+        "max": -114.0
+      }
+    }
+  },
+  "feature_importance_selected_model": [
     {
       "feature": "MedInc",
-      "importance": 0.5294
+      "importance": 0.528
     },
     {
       "feature": "AveOccup",
-      "importance": 0.1416
+      "importance": 0.1421
     },
     {
       "feature": "Latitude",
-      "importance": 0.0907
+      "importance": 0.0915
     },
     {
       "feature": "Longitude",
-      "importance": 0.0879
+      "importance": 0.089
     },
     {
       "feature": "HouseAge",
-      "importance": 0.0522
+      "importance": 0.052
     },
     {
       "feature": "AveRooms",
-      "importance": 0.0435
+      "importance": 0.0425
     },
     {
       "feature": "Population",
-      "importance": 0.0283
+      "importance": 0.0286
     },
     {
       "feature": "AveBedrms",
-      "importance": 0.0265
+      "importance": 0.0262
     }
   ],
-  "linear_model_raw_coefficients": {
-    "MedInc": 0.42405,
-    "HouseAge": 0.010775,
-    "AveRooms": -0.096217,
-    "AveBedrms": 0.702209,
-    "Population": 3.6e-05,
-    "AveOccup": -0.299751,
-    "Latitude": -0.438659,
-    "Longitude": -0.432337
-  },
-  "linear_model_intercept": -35.362315,
   "sample_predictions": [
     {
       "features": {
@@ -81,8 +267,8 @@
         "Latitude": 37.55,
         "Longitude": -122.3
       },
-      "predicted_value_100k": 2.5,
-      "actual_value_100k": 3.43
+      "predicted_value_100k": 2.56,
+      "actual_value_100k": 3.428
     },
     {
       "features": {
@@ -95,7 +281,7 @@
         "Latitude": 37.36,
         "Longitude": -122.04
       },
-      "predicted_value_100k": 3.99,
+      "predicted_value_100k": 3.771,
       "actual_value_100k": 4.03
     },
     {
@@ -109,7 +295,7 @@
         "Latitude": 34.05,
         "Longitude": -117.18
       },
-      "predicted_value_100k": 1.98,
+      "predicted_value_100k": 2.048,
       "actual_value_100k": 1.37
     },
     {
@@ -123,8 +309,8 @@
         "Latitude": 38.52,
         "Longitude": -121.43
       },
-      "predicted_value_100k": 0.76,
-      "actual_value_100k": 0.78
+      "predicted_value_100k": 0.748,
+      "actual_value_100k": 0.783
     },
     {
       "features": {
@@ -137,14 +323,16 @@
         "Latitude": 34.24,
         "Longitude": -118.5
       },
-      "predicted_value_100k": 3.27,
-      "actual_value_100k": 3.15
+      "predicted_value_100k": 3.298,
+      "actual_value_100k": 3.153
     }
   ],
   "limitations": [
-    "Trained on 1990 census data \u2014 not current housing prices.",
-    "Block-group level, not individual-property level.",
-    "Random Forest metrics are on a held-out test set, not live data.",
-    "Illustrative portfolio project only \u2014 not financial or investment advice."
+    "The dataset reflects 1990 census conditions, not current housing prices.",
+    "Rows are block-group aggregates, not individual properties.",
+    "Final metrics are from one deterministic held-out split, not temporal validation.",
+    "R² is variance explained on this historical split, not prediction accuracy or confidence.",
+    "Random Forest impurity importance is model inspection, not causal explanation.",
+    "Illustrative portfolio project only — not a valuation or financial recommendation."
   ]
 }
