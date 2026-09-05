@@ -192,7 +192,10 @@ def run_pipeline(
     }
 
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
-    metrics_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    metrics_path.write_text(
+        json.dumps(result, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
     return result
 
 
