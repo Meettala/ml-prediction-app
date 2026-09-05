@@ -8,11 +8,15 @@ import pytest
 
 import src.mlapp.data as data_module
 from src.mlapp.data import (
+    API_BOUNDS,
     FEATURE_DESCRIPTIONS,
     TARGET_NAME,
+    UI_BOUNDS,
     clean_data,
+    clean_data_with_audit,
     load_data,
     split_data,
+    split_train_validation_test,
     validate_data_frame,
 )
 
@@ -44,27 +48,58 @@ def test_load_data_returns_a_copy_with_expected_schema(monkeypatch):
     assert loaded is not original
 
 
-def test_clean_data_removes_duplicates_and_extreme_rows():
+def test_clean_data_records_exact_sequential_row_accounting():
     frame = pd.concat([sample_frame(), sample_frame().iloc[[0]]], ignore_index=True)
 
-    cleaned = clean_data(frame)
+    cleaned, audit = clean_data_with_audit(frame)
 
-    assert cleaned["AveRooms"].max() < 30
-    assert cleaned["AveOccup"].max() < 15
     assert len(cleaned) == 3
+    assert audit.to_dict() == {
+        "raw_rows": 6,
+        "exact_duplicates_removed": 1,
+        "ave_rooms_rows_removed": 1,
+        "ave_occup_rows_removed": 1,
+        "final_rows": 3,
+    }
+    assert len(clean_data(frame)) == audit.final_rows
 
 
-def test_split_data_is_reproducible_and_preserves_alignment():
+def test_three_way_split_is_reproducible_disjoint_and_complete():
+    frame = pd.concat([sample_frame().iloc[[0, 1, 4]]] * 20, ignore_index=True)
+
+    first = split_train_validation_test(frame)
+    second = split_train_validation_test(frame)
+
+    assert first.row_counts() == {"train": 36, "validation": 12, "test": 12}
+    assert first.X_train.index.tolist() == second.X_train.index.tolist()
+    assert first.X_validation.index.tolist() == second.X_validation.index.tolist()
+    assert first.X_test.index.tolist() == second.X_test.index.tolist()
+
+    train_indexes = set(first.X_train.index)
+    validation_indexes = set(first.X_validation.index)
+    test_indexes = set(first.X_test.index)
+    assert train_indexes.isdisjoint(validation_indexes)
+    assert train_indexes.isdisjoint(test_indexes)
+    assert validation_indexes.isdisjoint(test_indexes)
+    assert len(train_indexes | validation_indexes | test_indexes) == len(frame)
+
+
+def test_serving_and_ui_bounds_share_the_canonical_feature_keys():
+    expected = list(FEATURE_DESCRIPTIONS)
+    assert list(API_BOUNDS) == expected
+    assert list(UI_BOUNDS) == expected
+    for feature in expected:
+        api_min, api_max, _ = API_BOUNDS[feature]
+        ui_min, ui_max = UI_BOUNDS[feature]
+        assert api_min <= ui_min <= ui_max <= api_max
+
+
+def test_legacy_two_way_split_remains_reproducible():
     frame = pd.concat([sample_frame().iloc[[0, 1, 4]]] * 10, ignore_index=True)
-
     first = split_data(frame, test_size=0.2, random_state=42)
     second = split_data(frame, test_size=0.2, random_state=42)
-    X_train, X_test, y_train, y_test = first
-
-    assert len(X_train) == len(y_train)
-    assert len(X_test) == len(y_test)
-    assert X_train.index.tolist() == second[0].index.tolist()
-    assert X_test.index.tolist() == second[1].index.tolist()
+    assert first[0].index.tolist() == second[0].index.tolist()
+    assert first[1].index.tolist() == second[1].index.tolist()
 
 
 def test_rejects_missing_non_numeric_and_non_finite_columns():
@@ -85,18 +120,21 @@ def test_rejects_missing_non_numeric_and_non_finite_columns():
 
 def test_rejects_empty_cleaning_result():
     frame = sample_frame().iloc[[2, 3]]
-
     with pytest.raises(ValueError, match="No housing rows remain"):
         clean_data(frame)
 
 
-@pytest.mark.parametrize("test_size", [0, 1, -0.1, 1.1, "0.2", True])
-def test_rejects_invalid_test_size(test_size):
-    with pytest.raises(ValueError, match="test_size"):
-        split_data(sample_frame(), test_size=test_size)
+@pytest.mark.parametrize("value", [0, 1, -0.1, 1.1, "0.2", True])
+def test_rejects_invalid_three_way_split_fractions(value):
+    with pytest.raises(ValueError):
+        split_train_validation_test(sample_frame(), final_test_size=value)
+    with pytest.raises(ValueError):
+        split_train_validation_test(sample_frame(), validation_size_of_development=value)
 
 
-@pytest.mark.parametrize("random_state", [1.5, "42", True])
-def test_rejects_invalid_random_state(random_state):
-    with pytest.raises(ValueError, match="random_state"):
-        split_data(sample_frame(), random_state=random_state)
+@pytest.mark.parametrize("value", [1.5, "42", True])
+def test_rejects_invalid_three_way_random_states(value):
+    with pytest.raises(ValueError):
+        split_train_validation_test(sample_frame(), final_test_random_state=value)
+    with pytest.raises(ValueError):
+        split_train_validation_test(sample_frame(), validation_random_state=value)

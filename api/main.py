@@ -13,16 +13,18 @@ from src.mlapp.artifacts import (
     FEATURE_NAMES,
     InvalidModelArtifact,
     load_model_bundle,
+    predict_from_bundle,
     validate_prediction,
 )
+from src.mlapp.data import API_BOUNDS
 
 ROOT = Path(__file__).resolve().parents[1]
-MODEL_PATH = ROOT / "models" / "random_forest.joblib"
+MODEL_PATH = ROOT / "models" / "selected_model.joblib"
 
 app = FastAPI(
-    title="California Housing Price Predictor",
+    title="California Housing Historical Block-Group Estimator",
     description=(
-        "Illustrative block-group estimate from 1990 US Census data. "
+        "Illustrative historical median block-group target estimate from 1990 US Census data. "
         "Not a property valuation or financial advice."
     ),
 )
@@ -31,18 +33,34 @@ _model_bundle: dict[str, Any] | None = None
 
 
 class PredictionRequest(BaseModel):
-    """Validated block-group features in the training schema."""
+    """Validated block-group features in canonical training-feature order."""
 
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
-    MedInc: float = Field(..., ge=0, le=20)
-    HouseAge: float = Field(..., ge=0, le=100)
-    AveRooms: float = Field(..., gt=0, le=30)
-    AveBedrms: float = Field(..., gt=0, le=10)
-    Population: float = Field(..., ge=0, le=100_000)
-    AveOccup: float = Field(..., gt=0, le=15)
-    Latitude: float = Field(..., ge=32.0, le=42.0)
-    Longitude: float = Field(..., ge=-125.0, le=-114.0)
+    MedInc: float = Field(..., ge=API_BOUNDS["MedInc"][0], le=API_BOUNDS["MedInc"][1])
+    HouseAge: float = Field(
+        ...,
+        ge=API_BOUNDS["HouseAge"][0],
+        le=API_BOUNDS["HouseAge"][1],
+    )
+    AveRooms: float = Field(..., gt=API_BOUNDS["AveRooms"][0], le=API_BOUNDS["AveRooms"][1])
+    AveBedrms: float = Field(
+        ...,
+        gt=API_BOUNDS["AveBedrms"][0],
+        le=API_BOUNDS["AveBedrms"][1],
+    )
+    Population: float = Field(
+        ...,
+        ge=API_BOUNDS["Population"][0],
+        le=API_BOUNDS["Population"][1],
+    )
+    AveOccup: float = Field(..., gt=API_BOUNDS["AveOccup"][0], le=API_BOUNDS["AveOccup"][1])
+    Latitude: float = Field(..., ge=API_BOUNDS["Latitude"][0], le=API_BOUNDS["Latitude"][1])
+    Longitude: float = Field(
+        ...,
+        ge=API_BOUNDS["Longitude"][0],
+        le=API_BOUNDS["Longitude"][1],
+    )
 
 
 class PredictionResponse(BaseModel):
@@ -81,7 +99,7 @@ def predict(request: PredictionRequest) -> PredictionResponse:
     )
 
     try:
-        raw_prediction = bundle["model"].predict(features)[0]
+        raw_prediction = predict_from_bundle(bundle, features)[0]
         prediction = validate_prediction(raw_prediction)
     except (InvalidModelArtifact, IndexError, KeyError, TypeError, ValueError) as exc:
         raise HTTPException(
@@ -94,7 +112,7 @@ def predict(request: PredictionRequest) -> PredictionResponse:
         predicted_value_usd=round(prediction * 100_000, 2),
         model=str(bundle["model_name"]),
         disclaimer=(
-            "Illustrative block-group estimate using 1990 census data; "
+            "Illustrative historical median block-group estimate using 1990 census data; "
             "not a property valuation or financial advice."
         ),
     )

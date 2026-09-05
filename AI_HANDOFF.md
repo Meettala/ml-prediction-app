@@ -1,136 +1,192 @@
 # AI Handoff — ML Prediction App
 
-> Use this file to continue `Meettala/ml-prediction-app` without restarting the project. Always verify the live repository, current branch, CI and deployments before editing.
+> Continue from the live repository and current CI, not from old portfolio instructions. Do not start final portfolio/JR06 consolidation unless the user explicitly requests it.
 
-## Current repository state
+## Repository
 
 - Repository: `Meettala/ml-prediction-app`
 - Default branch: `main`
 - Visibility: public
 - Licence: MIT
+- Package version: `0.1.0`
 - Stack: Python, pandas, scikit-learn, FastAPI, Streamlit, Pydantic, pytest, Ruff and Docker
-- Dataset: scikit-learn California Housing aggregate block-group dataset
-- Last updated: 1 August 2026
+- Dataset: scikit-learn California Housing historical block-group dataset
 
-## Verified live deployments
+## JR05 evaluation truth
 
-- Streamlit UI: `https://meet-tala-ml-prediction-app-px2pch6zms5lrdhxyxurht.streamlit.app`
-- FastAPI service: `https://ml-prediction-app-xfsd.onrender.com`
-- Swagger/OpenAPI documentation: `https://ml-prediction-app-xfsd.onrender.com/docs`
-- Health endpoint: `https://ml-prediction-app-xfsd.onrender.com/health`
+The final-test set is **not** used to choose the serving model.
 
-The Streamlit UI was manually confirmed to load successfully after the source-import fix. The Render API, health endpoint, Swagger documentation, valid prediction request and invalid-input validation were also tested. Render uses a free instance and may take additional time to wake after inactivity.
+Deterministic design:
 
-## Product purpose
+1. clean the real California Housing data with fixed transparent filters;
+2. create a 20% final test split first (`random_state=42`);
+3. split the remaining development rows into train/validation, using 25% of development for validation (`random_state=43`);
+4. fit the fixed Linear Regression and Random Forest candidates on train;
+5. select by lowest validation RMSE; exact tie → Linear Regression baseline;
+6. refit the selected model on train + validation;
+7. evaluate once on final test.
 
-The project trains and evaluates housing-value regression models, saves a selected model, exposes estimates through FastAPI and Streamlit, and exports measured metrics for portfolio use.
+Current generated evidence:
 
-The output is an educational estimate from 1990 census block-group data. It is not a property valuation, appraisal, financial recommendation or guarantee.
+- raw rows: 20,640
+- duplicates removed: 0
+- `AveRooms >= 30` removed: 24
+- `AveOccup >= 15` removed after prior filtering: 19
+- cleaned rows: 20,597
+- train: 12,357
+- validation: 4,120
+- final test: 4,120
+- development refit rows: 16,477
 
-## Model and data results
+Validation metrics:
 
-Completed real pipeline run:
+- Linear Regression: RMSE 0.6877, MAE 0.5023, R² 0.6454
+- Random Forest: RMSE 0.5356, MAE 0.3529, R² 0.7850
 
-- Cleaned rows: 20,597
-- Features: `MedInc`, `HouseAge`, `AveRooms`, `AveBedrms`, `Population`, `AveOccup`, `Latitude`, `Longitude`
-- Linear Regression: RMSE 0.6541, MAE 0.4867, R² 0.6786
-- Random Forest: RMSE 0.4762, MAE 0.3193, R² 0.8297
-- Selected model: Random Forest
-- Generated artifacts:
-  - `models/random_forest.joblib` — approximately 90 MB
-  - `models/linear_baseline.joblib`
-  - `exports/metrics.json`
+Selected model: **Random Forest**.
 
-Do not commit unnecessary downloaded datasets or cache files. The large Random Forest artifact should only be committed if repository policy explicitly requires it.
+Final held-out test metrics after refit:
 
-## Core trust model
+- RMSE 0.4771
+- MAE 0.3202
+- R² 0.8290
 
-1. Use public aggregate or explicitly permitted data only.
-2. Preserve transparent cleaning and deterministic train/test separation.
-3. Keep the Linear Regression baseline visible beside the stronger model.
-4. Define feature order centrally in `src/mlapp/artifacts.py`.
-5. Save the Random Forest in a versioned bundle with model name, feature schema and scikit-learn metadata.
-6. Treat joblib/pickle artifacts as trusted-code files. Never accept uploaded model files or user-controlled artifact paths.
-7. Reject extra, non-finite and out-of-range API values.
-8. Require predictions to be numeric, finite and non-negative.
-9. Return safe generic errors for missing, corrupt or incompatible artifacts.
-10. Display the historical-data and non-valuation limitation in documentation, API output and UI.
+`exports/metrics.json` is the authoritative generated evidence. CI regenerates it from the real dataset, checks it against the committed file, then runs the pipeline again and requires byte-for-byte reproducibility in the same validated environment.
 
-## Deployment history
+## Validated JR05 environment
 
-### FastAPI and Docker
+- Python 3.12.14
+- pandas 2.3.3
+- NumPy 2.5.2
+- scikit-learn 1.9.0
+- joblib 1.6.0
 
-- Docker build initially failed because builder dependencies installed under `/install` were not on the pipeline import path.
-- Fixed with `PYTHONPATH=/install/lib/python3.12/site-packages:/app python -m src.mlapp.pipeline`.
-- Docker build and runtime were validated.
-- `/health`, `/docs`, `/openapi.json`, valid `/predict`, invalid request handling and artifact presence passed.
-- FastAPI deployed to Render at the verified URL above.
-- Opening the base Render URL returns `{"detail":"Not Found"}` because the API intentionally has no root homepage route.
+`requirements.txt` and `pyproject.toml` use aligned compatible ranges. Do not claim bit-for-bit reproducibility across arbitrary dependency versions.
 
-### Streamlit
+## Data and target boundary
 
-- Streamlit Community Cloud initially failed with `ModuleNotFoundError: No module named 'src'`.
-- PR #4 added the repository root to `sys.path` before importing `src.mlapp`, with narrow Ruff `E402` exemptions.
-- PR #4 passed CI and merged as commit `9fd5bb8b5f6c9cd97865a29540c2c4771dc89d1e`.
-- The app was renamed from a misleading `jobpilot-ai` URL to the verified ML Prediction App URL above.
-- User confirmed the deployed California Housing interface loads successfully.
+The dataset is derived from 1990 US Census block-group aggregates. The target is median block-group house value in $100,000 dataset units.
 
-## Completed validation
+Public wording should prefer **historical median block-group value estimate**.
 
-- Python 3.10, 3.11 and 3.12 tests passing
-- Ruff passing
-- Dependency auditing passing at the last checked CI state
-- Docker build and startup passing
-- FastAPI health and docs passing
-- Valid API prediction returning HTTP 200
-- Invalid API cases returning HTTP 422
-- Streamlit page loading and displaying model comparison, feature importance, sliders, prediction and limitations
+Do not call the output:
 
-Verified sample request:
+- current property value;
+- house appraisal;
+- investment value;
+- current California housing price;
+- financial advice.
 
-```json
-{
-  "MedInc": 5.0,
-  "HouseAge": 20,
-  "AveRooms": 6.0,
-  "AveBedrms": 1.0,
-  "Population": 1500,
-  "AveOccup": 3.0,
-  "Latitude": 34.0,
-  "Longitude": -118.0
-}
-```
+R² 0.8290 is variance explained on one historical held-out split. It is not 82.9% prediction accuracy or confidence.
 
-A completed API test returned a Random Forest estimate of approximately `$232,934`, with the historical-data disclaimer. Exact values depend on the deployed artifact.
+## Cleaning truth
+
+The thresholds `AveRooms < 30` and `AveOccup < 15` are fixed transparent demonstration filters for extreme aggregate values. They are not claimed to be statistically optimal outlier treatment.
+
+## Feature/schema truth
+
+Canonical feature order:
+
+1. `MedInc`
+2. `HouseAge`
+3. `AveRooms`
+4. `AveBedrms`
+5. `Population`
+6. `AveOccup`
+7. `Latitude`
+8. `Longitude`
+
+Shared metadata in `src/mlapp/data.py` distinguishes:
+
+- feature description/unit;
+- cleaned training-data range;
+- API demo/safety range;
+- Streamlit convenience range.
+
+Do not call the UI/API bounds the training schema.
+
+## Artifact trust boundary
+
+The serving artifact is `models/selected_model.joblib`, built by the trusted training pipeline.
+
+The artifact stores:
+
+- schema version;
+- selected model name;
+- canonical features/order;
+- exact scikit-learn version;
+- fitted estimator;
+- fitted scaler if the selected model requires one.
+
+The loader requires the recorded scikit-learn version to exactly match the runtime version. On mismatch it asks for retraining.
+
+This does **not** make arbitrary joblib/pickle files safe. They can execute code during loading. Never add model upload or a user-controlled artifact path.
+
+## API safety model
+
+FastAPI/Pydantic:
+
+- forbids extra fields;
+- rejects missing fields;
+- rejects non-finite values;
+- applies explicit demo/safety ranges;
+- creates the prediction frame in canonical feature order;
+- validates model output is numeric, finite and non-negative;
+- returns generic errors for missing/corrupt/incompatible artifacts and invalid output;
+- does not return local paths or raw deserialization errors.
+
+## Feature importance boundary
+
+Random Forest impurity importance is model inspection, not causal explanation, and can favour some feature structures. Do not present it as a causal or policy result.
+
+## Current automated verification
+
+JR05 CI contains:
+
+- tests on Python 3.10, 3.11 and 3.12;
+- `pip check`;
+- Ruff;
+- `pip-audit`;
+- a real California Housing training-evidence job;
+- committed-metrics comparison;
+- a second real pipeline run for reproducibility;
+- a Docker build from scratch;
+- non-root runtime-user check;
+- `/health` and OpenAPI smoke;
+- one valid `/predict` and one invalid request.
+
+Always verify the latest exact `main` CI before repeating these as current claims.
+
+## Historical deployment URLs
+
+Last manually verified on 1 August 2026:
+
+- Streamlit: `https://meet-tala-ml-prediction-app-px2pch6zms5lrdhxyxurht.streamlit.app`
+- FastAPI: `https://ml-prediction-app-xfsd.onrender.com`
+- API docs: `https://ml-prediction-app-xfsd.onrender.com/docs`
+- health: `https://ml-prediction-app-xfsd.onrender.com/health`
+
+JR05 automation/browser fetch failure is not evidence the deployments are down. Until a current JR05 deployment is freshly smoke-tested, describe these as historical deployment candidates rather than current verified deployments.
 
 ## Known limitations
 
-- The data is from 1990 and cannot represent current prices.
-- Records are census block-group aggregates, not individual properties.
-- The evaluation uses one deterministic held-out split rather than a full temporal or cross-validation study.
-- Historical geographic and socioeconomic patterns can encode structural inequities.
-- Random Forest feature importance is not causal explanation.
-- The public deployments have no authentication, rate limiting, monitoring or governed model registry.
-- The Render free instance may sleep after inactivity.
-- Real screenshots, demo video and social-preview upload remain presentation tasks.
+- historical 1990 dataset;
+- block-group aggregates, not individual properties;
+- one deterministic final test split, not temporal validation;
+- no current-market or fairness validation;
+- no uncertainty interval;
+- feature importance is non-causal;
+- public serving architecture has no authentication, rate limiting, drift monitoring or governed registry;
+- current hosted JR05 deployment status requires fresh manual verification if automated access remains unavailable.
 
-## Next work
+## Genuine remaining presentation conditions
 
-1. Merge the documentation PR that adds verified live links to `README.md` and this handoff.
-2. Add the Streamlit live link and GitHub repository to the portfolio project card.
-3. Add a concise project entry to the CV and LinkedIn Projects section.
-4. Capture screenshots of model comparison, feature importance, prediction output, limitations, API docs, health response and CI.
-5. Keep all future claims tied to code, tests, measured metrics or verified deployments.
+- Freshly smoke the historical Streamlit and Render deployment candidates after JR05 is deployed, if they are still used.
+- Capture a clean current screenshot/video only after the deployed content matches `main`.
+- Add repository description/topics manually if repository-settings tooling is unavailable.
 
-## Suggested CV entry
-
-**ML Prediction App — California Housing**  
-Built and deployed an end-to-end regression application using Python, scikit-learn, FastAPI, Streamlit and Docker. Compared Linear Regression with Random Forest on a held-out test set, achieving an R² of 0.83 with the selected model. Added schema-validated API inputs, versioned model artifacts, CI across Python 3.10–3.12 and public deployments on Streamlit Community Cloud and Render.
-
-## Suggested LinkedIn project description
-
-Developed a production-minded machine-learning portfolio application using the California Housing dataset. The project includes reproducible training, baseline comparison, validated model artifacts, FastAPI, Streamlit, Docker, automated testing and public deployment. Random Forest achieved a held-out R² of approximately 0.83. The interface clearly states that results are historical block-group estimates rather than current property valuations or financial advice.
+Do not resume old project-order tasks or the stale instruction to merge an already-merged documentation PR.
 
 ## Rules for another AI
 
-Inspect the live repository and CI before editing. Preserve the data, evaluation, artifact-validation and disclaimer boundaries. Add positive and negative tests for material behaviour changes. Never expose secrets, private data or untrusted pickle files. Update this handoff after code, deployment, dependency, documentation or presentation work.
+Inspect current repository/CI/deployments first. Preserve train/validation/final-test separation and the untouched-test claim. Do not use the final test to tune/select models. Keep `exports/metrics.json` generated and evidence-backed. Treat joblib as trusted code only. Add focused positive and negative tests for material behaviour changes. Keep prediction, R², feature-importance and historical-data claims conservative.

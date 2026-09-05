@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: python -m pip install --upgrade pip && python -m pip install -r requirements-dev.txt
 
+      - name: Check installed dependency consistency
+        run: python -m pip check
+
       - name: Run tests
         run: python -m pytest
 
@@ -48,8 +51,112 @@ jobs:
       - name: Install dependencies
         run: python -m pip install --upgrade pip && python -m pip install -r requirements-dev.txt
 
+      - name: Check installed dependency consistency
+        run: python -m pip check
+
       - name: Run Ruff
-        run: ruff check src api streamlit_app tests --output-format=github
+        run: ruff check src api streamlit_app tests tools --output-format=github
 
       - name: Audit dependencies
         run: pip-audit -r requirements.txt
+
+  training-evidence:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements-dev.txt
+
+      - name: Check installed dependency consistency
+        run: python -m pip check
+
+      - name: Preserve committed metrics evidence
+        run: cp exports/metrics.json /tmp/committed-metrics.json
+
+      - name: Run full California Housing pipeline
+        run: python -m src.mlapp.pipeline
+
+      - name: Verify committed metrics match generated evidence
+        run: cmp --silent /tmp/committed-metrics.json exports/metrics.json
+
+      - name: Re-run and verify deterministic metrics
+        run: python -m tools.verify_reproducibility
+
+      - name: Upload generated JR05 metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: jr05-metrics
+          path: exports/metrics.json
+
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build image from scratch
+        run: docker build --no-cache -t ml-prediction-app:jr05 .
+
+      - name: Verify non-root runtime user
+        run: test "$(docker image inspect ml-prediction-app:jr05 --format '{{.Config.User}}')" = "appuser"
+
+      - name: Start API container
+        run: docker run -d --name jr05-api -p 8000:8000 ml-prediction-app:jr05
+
+      - name: Verify health, docs, valid prediction and invalid request
+        run: |
+          for attempt in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:8000/health > /tmp/health.json; then
+              break
+            fi
+            if [ "$attempt" -eq 40 ]; then
+              docker logs jr05-api
+              exit 1
+            fi
+            sleep 2
+          done
+
+          python - <<'PY'
+          import json
+          health = json.load(open('/tmp/health.json', encoding='utf-8'))
+          assert health == {'status': 'ok', 'model_artifact_present': True}, health
+          PY
+
+          curl --fail --silent http://127.0.0.1:8000/openapi.json > /tmp/openapi.json
+          python - <<'PY'
+          import json
+          spec = json.load(open('/tmp/openapi.json', encoding='utf-8'))
+          assert '/predict' in spec['paths']
+          PY
+
+          curl --fail --silent -X POST http://127.0.0.1:8000/predict \
+            -H 'Content-Type: application/json' \
+            -d '{"MedInc":5.0,"HouseAge":20,"AveRooms":6.0,"AveBedrms":1.0,"Population":1500,"AveOccup":3.0,"Latitude":34.0,"Longitude":-118.0}' \
+            > /tmp/predict.json
+          python - <<'PY'
+          import json
+          result = json.load(open('/tmp/predict.json', encoding='utf-8'))
+          assert result['model'] in {'linear_baseline', 'random_forest'}
+          assert result['predicted_value_usd'] >= 0
+          assert 'historical' in result['disclaimer'].lower()
+          PY
+
+          status=$(curl --silent --output /tmp/invalid.json --write-out '%{http_code}' \
+            -X POST http://127.0.0.1:8000/predict \
+            -H 'Content-Type: application/json' \
+            -d '{"MedInc":5.0}')
+          test "$status" = "422"
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f jr05-api || true
