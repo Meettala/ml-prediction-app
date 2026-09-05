@@ -23,4 +23,4 @@ python -m src.mlapp.pipeline
 python -m tools.verify_reproducibility
 ```
 
-The 55? style of raw test count should only be quoted from the latest executed CI; do not treat this note as a frozen count source.
+Quote a raw test count only from the latest executed CI rather than treating this note as a frozen count source.
