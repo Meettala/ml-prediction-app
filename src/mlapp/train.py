@@ -106,12 +106,17 @@ def select_model(validation_metrics: dict[str, dict[str, float]]) -> str:
         if not isinstance(rmse, int | float) or not np.isfinite(float(rmse)):
             raise ValueError(f"Validation RMSE for {name} must be finite")
 
-    if validation_metrics["random_forest"]["rmse"] < validation_metrics["linear_baseline"]["rmse"]:
+    forest_rmse = validation_metrics["random_forest"]["rmse"]
+    linear_rmse = validation_metrics["linear_baseline"]["rmse"]
+    if forest_rmse < linear_rmse:
         return "random_forest"
     return "linear_baseline"
 
 
-def feature_importance(rf_model: TrainedModel, feature_names: list[str]) -> list[dict[str, float | str]]:
+def feature_importance(
+    rf_model: TrainedModel,
+    feature_names: list[str],
+) -> list[dict[str, float | str]]:
     if rf_model.name != "random_forest":
         return []
     importances = rf_model.model.feature_importances_
