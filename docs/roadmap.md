@@ -2,26 +2,29 @@
 
 ## Completed portfolio foundation
 
-- deterministic data split and model seeds;
-- Linear Regression baseline and Random Forest comparison;
-- versioned model bundle and canonical feature schema;
+- deterministic train/validation/final-test separation with final test excluded from model selection;
+- Linear Regression baseline and fixed Random Forest comparison on validation RMSE;
+- auditable cleaning row counts and generated environment/split/metric evidence;
+- real California Housing CI training, committed-metrics comparison and same-environment reproducibility check;
+- versioned selected-model bundle, canonical feature order and exact scikit-learn compatibility guard;
 - validated FastAPI and Streamlit prediction paths;
-- offline tests, Python matrix CI, Ruff and dependency auditing;
-- non-root Docker API image;
+- offline tests, Python 3.10–3.12 matrix CI, `pip check`, Ruff and dependency auditing;
+- non-root Docker API build/health/OpenAPI/prediction smoke;
 - security, model-card and portfolio documentation.
 
-## Next engineering improvements
+## Possible future engineering work
 
-1. Add a dedicated integration workflow that downloads the real dataset, trains the model and publishes metrics as a CI artifact without committing generated binaries.
-2. Add cross-validation and confidence intervals for model comparison.
-3. Add data-schema validation with explicit missing-column and dtype reports.
-4. Add signed model manifests or a governed model registry for production artifacts.
-5. Add drift and out-of-distribution diagnostics for submitted features.
-6. Add latency and prediction-distribution monitoring in a private deployment.
-7. Add structured API versioning and OpenAPI examples.
-8. Evaluate more transparent alternatives such as HistGradientBoosting and monotonic models.
-9. Add fairness and geographic error analysis with appropriate legal and ethical review.
+These are not required to support the current portfolio claims:
+
+1. Add repeated cross-validation or confidence intervals when a broader model-comparison study is actually needed.
+2. Add richer data-drift/out-of-distribution diagnostics for submitted features.
+3. Add signed model manifests or a governed registry for production artifacts.
+4. Add latency and prediction-distribution monitoring in a private deployment.
+5. Add structured API versioning and OpenAPI examples.
+6. Evaluate additional transparent candidates only if a real product/research objective justifies them.
+7. Add fairness and geographic error analysis with appropriate legal and ethical review.
+8. Replace the historical dataset with current licensed data only in a governed use case that needs current-market estimation.
 
 ## Commercial boundary
 
-A paid service should be implemented in a separate private repository with current licensed data, identity, rate limiting, tenant isolation, managed secrets, signed artifacts, monitoring, retention controls, incident response, legal review and independent security/model-risk testing.
+A paid service should be implemented with current licensed data, identity, rate limiting, tenant isolation where relevant, managed secrets, governed/signed artifacts, monitoring, privacy/retention controls, incident response, legal review and independent security/model-risk testing.
