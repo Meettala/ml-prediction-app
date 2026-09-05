@@ -138,7 +138,10 @@ def run_pipeline(
                 "AveRooms": "remove rows where AveRooms >= 30",
                 "AveOccup": "after prior filtering, remove rows where AveOccup >= 15",
             },
-            "interpretation": "fixed transparent demonstration filters; not statistically optimal outlier treatment",
+            "interpretation": (
+                "fixed transparent demonstration filters; "
+                "not statistically optimal outlier treatment"
+            ),
         },
         "split": {
             "method": "deterministic train/validation/final-test",
@@ -179,7 +182,10 @@ def run_pipeline(
             "The dataset reflects 1990 census conditions, not current housing prices.",
             "Rows are block-group aggregates, not individual properties.",
             "Final metrics are from one deterministic held-out split, not temporal validation.",
-            "R² is variance explained on this historical split, not prediction accuracy or confidence.",
+            (
+                "R² is variance explained on this historical split, "
+                "not prediction accuracy or confidence."
+            ),
             "Random Forest impurity importance is model inspection, not causal explanation.",
             "Illustrative portfolio project only — not a valuation or financial recommendation.",
         ],
