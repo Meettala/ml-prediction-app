@@ -79,8 +79,14 @@ jobs:
       - name: Check installed dependency consistency
         run: python -m pip check
 
+      - name: Preserve committed metrics evidence
+        run: cp exports/metrics.json /tmp/committed-metrics.json
+
       - name: Run full California Housing pipeline
         run: python -m src.mlapp.pipeline
+
+      - name: Verify committed metrics match generated evidence
+        run: cmp --silent /tmp/committed-metrics.json exports/metrics.json
 
       - name: Re-run and verify deterministic metrics
         run: python -m tools.verify_reproducibility
